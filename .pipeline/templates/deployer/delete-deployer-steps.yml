@@ -1,0 +1,18 @@
+steps:
+  - script: |
+      az login --service-principal --user $(hana-pipeline-spn-id) --password $(hana-pipeline-spn-pw) --tenant $(landscape-tenant) --output none
+      az group update --resource-group ${{parameters.deployer_rg_name}} --set tags.Delete=True
+      az lock delete --name resource-group-level --resource-group ${{parameters.deployer_rg_name}}
+    displayName: "Pre delete"
+  - script: |
+      cd deploy/terraform/bootstrap/sap_deployer
+
+      echo "=== Start to delete deployer with terraform destroy ==="
+      terraform destroy -auto-approve -var-file=updated_deployer.json
+      exit 0
+    displayName: "Delete new deployer"
+    env:
+      ARM_CLIENT_ID: $(hana-pipeline-spn-id)
+      ARM_CLIENT_SECRET: $(hana-pipeline-spn-pw)
+      ARM_TENANT_ID: $(landscape-tenant)
+      ARM_SUBSCRIPTION_ID: $(landscape-subscription)
