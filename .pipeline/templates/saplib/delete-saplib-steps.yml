@@ -1,0 +1,22 @@
+steps:
+  - script: |
+      echo "=== Delete SAP library from deployer ==="
+      ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=$(ssh_timeout_s) "$(username)"@"$(publicIP)" '
+      source /etc/profile.d/deploy_server.sh
+      saplib_rg="ad-sap-library-$(Build.BuildId)"
+      az login --identity --output none
+      az group update --resource-group $saplib_rg --set tags.Delete=True --output none
+      az lock delete --name resource-group-level --resource-group $saplib_rg --output none
+      cd sap-hana/deploy/terraform/bootstrap/sap_library_$(Build.BuildId)
+      terraform destroy -auto-approve -var-file=saplibrary.json
+      echo "=== Delete sap_library configuration on deployer ==="
+      rm -rf ~/sap-hana/deploy/terraform/bootstrap/sap_library_$(Build.BuildId)
+      '
+
+      exit 0
+    displayName: "Delete new saplibrary"
+    env:
+      ARM_CLIENT_ID: $(hana-pipeline-spn-id)
+      ARM_CLIENT_SECRET: $(hana-pipeline-spn-pw)
+      ARM_TENANT_ID: $(landscape-tenant)
+      ARM_SUBSCRIPTION_ID: $(landscape-subscription)

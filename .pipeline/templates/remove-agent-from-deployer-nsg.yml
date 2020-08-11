@@ -1,0 +1,13 @@
+steps:
+  - script: |
+      echo "=== Update NSG source address by removing agent IP ==="
+      rg_name=${{parameters.deployer_rg_name}}
+      az login --service-principal --user $(hana-pipeline-spn-id) --password $(hana-pipeline-spn-pw) --tenant $(landscape-tenant) --output none
+      prefix_list=$(az network nsg rule show  -g $rg_name --nsg-name nsg-mgmt -n ssh | jq -r '.sourceAddressPrefix, (.sourceAddressPrefixes | join(" ")) | select(.!=null)' | sed "s/$(agent_ip)//")
+      az network nsg rule update -g $rg_name --nsg-name nsg-mgmt -n ssh --source-address-prefixes $prefix_list --output none
+    displayName: "Remove agent IP from deployer NSG"
+    env:
+      ARM_CLIENT_ID: $(hana-pipeline-spn-id)
+      ARM_CLIENT_SECRET: $(hana-pipeline-spn-pw)
+      ARM_TENANT_ID: $(landscape-tenant)
+      ARM_SUBSCRIPTION_ID: $(landscape-subscription)
