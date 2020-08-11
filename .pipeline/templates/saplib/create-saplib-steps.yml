@@ -13,6 +13,7 @@ steps:
       sed -i 's/saplibrary/saplibrary.$(Build.BuildId)/' backend.tf
       sed -i 's/sap-library-test/ad-sap-library-$(Build.BuildId)/' saplibrary.json
       az login --identity --output none
+      which terraform
       terraform -version
       terraform init
       terraform apply -auto-approve -var-file=saplibrary.json
