@@ -23,6 +23,10 @@ stages:
       - template: templates/deployer/create-deployer-steps.yml
         parameters:
           deployer_rg_name: "ad-sap-deployer-$(Build.BuildId)"
+      - script: |
+          cd deploy/terraform/bootstrap/sap_deployer/default
+          bash post_deployment.sh
+        displayName: "Post deployment"
   - job: createSAPLib
     dependsOn: createDeployer
     variables:
