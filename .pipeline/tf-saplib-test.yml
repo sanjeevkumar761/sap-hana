@@ -1,0 +1,67 @@
+trigger: none
+pr:
+  branches:
+    include:
+    - feature/*
+  paths:
+    include:
+    - deploy/terraform/bootstrap/sap_library
+    - deploy/terraform/run/sap_library
+    - deploy/terraform/terraform-units/modules/sap_library
+variables:
+  - group: azure-config-variables
+  - group: azure-sap-hana-pipeline-secrets
+  - template: templates/variables.yaml
+stages:
+- stage:
+  pool:
+    vmImage: "ubuntu-18.04"
+  variables:
+    ssh_timeout_s: 120
+  jobs:
+  - job: createSAPLib
+    steps:
+      - template: templates/util/prepare-agent.yml
+      - template: templates/util/collect-deployer-info.yml
+        parameters:
+          deployer_rg_name: "ad-sap-deployer-library"
+      - template: templates/util/add-agent-to-deployer-nsg.yml
+        parameters:
+          deployer_rg_name: "ad-sap-deployer-library"
+      - template: templates/saplib/create-saplib-steps.yml
+      - template: templates/util/remove-agent-from-deployer-nsg.yml
+        parameters:
+          deployer_rg_name: "ad-sap-deployer-library"
+  - job: deleteSAPLib
+    dependsOn: createSAPLib
+    steps:
+      - template: templates/util/prepare-agent.yml
+      - template: templates/util/collect-deployer-info.yml
+        parameters:
+          deployer_rg_name: "ad-sap-deployer-library"
+      - template: templates/util/add-agent-to-deployer-nsg.yml
+        parameters:
+          deployer_rg_name: "ad-sap-deployer-library"
+      - template: templates/saplib/delete-saplib-steps.yml
+      - template: templates/util/remove-agent-from-deployer-nsg.yml
+        parameters:
+          deployer_rg_name: "ad-sap-deployer-library"
+  - job: cleanUp
+    dependsOn: deleteSAPLib
+    condition: or(succeededOrFailed(), always())
+    steps:
+      - script: |
+          echo "=== Mark and try to delete rg  ==="
+          az login --service-principal --user $(hana-pipeline-spn-id) --password $(hana-pipeline-spn-pw) --tenant $(landscape-tenant) --output none
+          
+          rg="ad-sap-library-$(Build.BuildId)"
+          az group update --resource-group $rg --set tags.Delete=True
+          az group delete -n $rg --no-wait -y
+
+          exit 0
+        displayName: "Cleanup"
+        env:
+          ARM_CLIENT_ID: $(hana-pipeline-spn-id)
+          ARM_CLIENT_SECRET: $(hana-pipeline-spn-pw)
+          ARM_TENANT_ID: $(landscape-tenant)
+          ARM_SUBSCRIPTION_ID: $(landscape-subscription)

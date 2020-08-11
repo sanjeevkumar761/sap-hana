@@ -1,0 +1,30 @@
+steps:
+  - script: |
+      echo "=== Deploy SAP library from deployer ==="
+      ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=$(ssh_timeout_s) "$(username)"@"$(publicIP)" '
+      source /etc/profile.d/deploy_server.sh
+      
+      echo "=== Prepare git clone for the build ==="
+      mkdir $(Build.BuildId) && cd $(Build.BuildId)
+      git clone https://github.com/Azure/sap-hana.git
+      cd sap-hana && git checkout $(sourceBranchName)
+      
+      echo "=== Prepare input for saplibrary ==="
+      cd deploy/terraform/bootstrap
+      cp -r sap_library sap_library_$(Build.BuildId)
+      cd sap_library_$(Build.BuildId)
+      sed -i 's/saplibrary/saplibrary.$(Build.BuildId)/' backend.tf
+      sed -i 's/sap-library-test/ad-sap-library-$(Build.BuildId)/' saplibrary.json
+      
+      echo "=== Create SAP library from deployer with terraform ==="
+      az login --identity --output none
+      terraform -version
+      terraform init
+      terraform apply -auto-approve -var-file=saplibrary.json
+      '
+    displayName: "Deploy new saplibrary"
+    env:
+      ARM_CLIENT_ID: $(hana-pipeline-spn-id)
+      ARM_CLIENT_SECRET: $(hana-pipeline-spn-pw)
+      ARM_TENANT_ID: $(landscape-tenant)
+      ARM_SUBSCRIPTION_ID: $(landscape-subscription)
