@@ -10,6 +10,7 @@ steps:
       prefix_list=$(az network nsg rule show  -g $rg_name --nsg-name nsg-mgmt -n ssh | jq -r '.sourceAddressPrefix, (.sourceAddressPrefixes | join(" ")) | select(.!=null)' | sed "s/$(agent_ip)//")
       az network nsg rule update -g $rg_name --nsg-name nsg-mgmt -n ssh --source-address-prefixes $prefix_list --output none
     displayName: "Remove agent IP from deployer NSG"
+    condition: always()
     env:
       ARM_CLIENT_ID: $(hana-pipeline-spn-id)
       ARM_CLIENT_SECRET: $(hana-pipeline-spn-pw)

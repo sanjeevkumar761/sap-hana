@@ -1,0 +1,29 @@
+steps:
+  - script: |
+      echo "=== Delete SAP system from deployer ==="
+      ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=$(ssh_timeout_s) "$(username)"@"$(publicIP)" '
+      source /etc/profile.d/deploy_server.sh
+      
+      echo "=== Set RG for deletion and remove lock ==="
+      sapsystem_rg="ad-sap-system-$(Build.BuildId)"
+
+      az login --identity --output none
+      az group update --resource-group $sapsystem_rg --set tags.Delete=True --output none
+      az lock delete --name resource-group-level --resource-group $sapsystem_rg --output none
+      
+      echo "=== Delete SAP library from deployer with terraform ==="
+      cd sap-hana/deploy/terraform/run/sap_system_$(Build.BuildId)
+      echo "=== Destroy sap system with terraform ==="
+      terraform destroy -auto-approve
+      
+      echo "=== Delete git clone for the build from deployer ==="
+      rm -rf ~/$(Build.BuildId)
+      '
+
+      exit 0
+    displayName: "Delete new sapsystem"
+    env:
+      ARM_CLIENT_ID: $(hana-pipeline-spn-id)
+      ARM_CLIENT_SECRET: $(hana-pipeline-spn-pw)
+      ARM_TENANT_ID: $(landscape-tenant)
+      ARM_SUBSCRIPTION_ID: $(landscape-subscription)

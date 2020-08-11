@@ -1,0 +1,35 @@
+steps:
+  - script: |
+      echo "=== Logon deployer ==="
+      ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=$(ssh_timeout_s) "$(username)"@"$(publicIP)" '
+      source /etc/profile.d/deploy_server.sh
+      
+      echo "=== Prepare git clone for the build ==="
+      mkdir $(Build.BuildId) && cd $(Build.BuildId)
+      git clone https://github.com/Azure/sap-hana.git
+      cd sap-hana && git checkout $(sourceBranchName)
+
+      echo "=== Prepare input for sapsystem ==="
+      cd deploy/terraform/run
+      cp -r sap_system sap_system_$(Build.BuildId)
+      cd sap_system_$(Build.BuildId)
+
+      landscape="PROD$(Build.BuildId)"
+      rg_name="ad-sap-system-$(Build.BuildId)"
+      json_file_name="${landscape}_HN1.json"
+      cat sapsystem.json \
+      | jq --arg landscape "$landscape" .infrastructure.landscape\ =\ \$landscape \
+      | jq --arg rg_name "$rg_name" .infrastructure.resource_group.name\ =\ \$rg_name \
+      > "$json_file_name"
+      
+      echo "=== Deploy sap system from deployer with terraform ==="
+      az login --identity --output none
+      echo "yes" | util/terraform.sh PROD$(Build.BuildId) HN1
+      git checkout master
+      '
+    displayName: "Deploy new saplibrary"
+    env:
+      ARM_CLIENT_ID: $(hana-pipeline-spn-id)
+      ARM_CLIENT_SECRET: $(hana-pipeline-spn-pw)
+      ARM_TENANT_ID: $(landscape-tenant)
+      ARM_SUBSCRIPTION_ID: $(landscape-subscription)
