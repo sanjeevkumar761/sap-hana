@@ -1,8 +1,10 @@
 steps:
   - script: |
       echo "=== Deploy SAP library from deployer ==="
+      echo $(publicIP)
       ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no -o ConnectTimeout=$(ssh_timeout_s) "$(username)"@"$(publicIP)" '
       source /etc/profile.d/deploy_server.sh
+      echo $PATH
       cd ~/sap-hana
       git checkout $(sourceBranchName)
       cd ~/sap-hana/deploy/terraform/bootstrap
